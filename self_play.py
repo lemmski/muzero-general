@@ -14,9 +14,9 @@ class SelfPlay:
     Class which run in a dedicated thread to play games and save them to the replay-buffer.
     """
 
-    def __init__(self, initial_checkpoint, Game, config, seed = 42):
+    def __init__(self, initial_checkpoint, Game, config, seed = 42, render=False):
         self.config = config
-        self.game = Game(seed)
+        self.game = Game(seed, render_mode="human" if render else None)
 
         # Fix random generator seed
         numpy.random.seed(seed)

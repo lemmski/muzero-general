@@ -391,7 +391,13 @@ class MuZero:
         self_play_worker = self_play.SelfPlay.options(
             num_cpus=0,
             num_gpus=num_gpus,
-        ).remote(self.checkpoint, self.Game, self.config, numpy.random.randint(10000))
+        ).remote(
+            self.checkpoint,
+            self.Game,
+            self.config,
+            numpy.random.randint(10000),
+            render=render
+        )
         results = []
         for i in range(num_tests):
             print(f"Testing {i+1}/{num_tests}")
@@ -683,7 +689,7 @@ if __name__ == "__main__":
             elif choice == 4:
                 muzero.test(render=True, opponent="human", muzero_player=0)
             elif choice == 5:
-                env = muzero.Game()
+                env = muzero.Game(render_mode="human")
                 env.reset()
                 env.render()
 

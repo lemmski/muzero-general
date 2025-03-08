@@ -93,7 +93,7 @@ class MuZeroConfig:
         self.momentum = 0.9  # Used only if optimizer is SGD
 
         # Exponential learning rate schedule
-        self.lr_init = 0.005  # Initial learning rate
+        self.lr_init = 0.05  # Initial learning rate
         self.lr_decay_rate = 1  # Set it to 1 to use a constant learning rate
         self.lr_decay_steps = 350e3
 
@@ -139,8 +139,8 @@ class Game(AbstractGame):
     Game wrapper.
     """
 
-    def __init__(self, seed=None):
-        self.env = gym.make("Breakout-v4")
+    def __init__(self, seed=None, render_mode=None):
+        self.env = gym.make("Breakout-v4", render_mode=render_mode, obs_type="rgb")
         if seed is not None:
             self.env.reset(seed=42)
 
@@ -196,5 +196,5 @@ class Game(AbstractGame):
         """
         Display the game observation.
         """
-        self.env.render("human")
+        self.env.render()
         input("Press enter to take a step ")
