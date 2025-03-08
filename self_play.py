@@ -14,7 +14,7 @@ class SelfPlay:
     Class which run in a dedicated thread to play games and save them to the replay-buffer.
     """
 
-    def __init__(self, initial_checkpoint, Game, config, seed):
+    def __init__(self, initial_checkpoint, Game, config, seed = 42):
         self.config = config
         self.game = Game(seed)
 
