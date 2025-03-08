@@ -140,7 +140,8 @@ class Game(AbstractGame):
     """
 
     def __init__(self, seed=None, render_mode=None):
-        self.env = gym.make("Breakout-v4", render_mode=render_mode, obs_type="rgb")
+        # For training we want rgb_array, for visualization we want human
+        self.env = gym.make("Breakout-v4", render_mode="rgb_array" if render_mode is None else render_mode)
         if seed is not None:
             self.env.reset(seed=42)
 
