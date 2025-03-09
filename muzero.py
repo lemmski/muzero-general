@@ -12,6 +12,7 @@ import numpy
 import ray
 import torch
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 import diagnose_model
 import models
@@ -264,70 +265,101 @@ class MuZero:
             "num_reanalysed_games",
         ]
         info = ray.get(self.shared_storage_worker.get_info.remote(keys))
+        
+        # Create progress bar
+        pbar = tqdm(total=self.config.training_steps, desc="Training", unit="steps")
+        last_step = 0
+        last_time = time.time()
+        last_update_time = last_time
+        update_interval = 0.5  # Update display every 0.5 seconds
+        
         try:
             while info["training_step"] < self.config.training_steps:
                 info = ray.get(self.shared_storage_worker.get_info.remote(keys))
-                writer.add_scalar(
-                    "1.Total_reward/1.Total_reward",
-                    info["total_reward"],
-                    counter,
-                )
-                writer.add_scalar(
-                    "1.Total_reward/2.Mean_value",
-                    info["mean_value"],
-                    counter,
-                )
-                writer.add_scalar(
-                    "1.Total_reward/3.Episode_length",
-                    info["episode_length"],
-                    counter,
-                )
-                writer.add_scalar(
-                    "1.Total_reward/4.MuZero_reward",
-                    info["muzero_reward"],
-                    counter,
-                )
-                writer.add_scalar(
-                    "1.Total_reward/5.Opponent_reward",
-                    info["opponent_reward"],
-                    counter,
-                )
-                writer.add_scalar(
-                    "2.Workers/1.Self_played_games",
-                    info["num_played_games"],
-                    counter,
-                )
-                writer.add_scalar(
-                    "2.Workers/2.Training_steps", info["training_step"], counter
-                )
-                writer.add_scalar(
-                    "2.Workers/3.Self_played_steps", info["num_played_steps"], counter
-                )
-                writer.add_scalar(
-                    "2.Workers/4.Reanalysed_games",
-                    info["num_reanalysed_games"],
-                    counter,
-                )
-                writer.add_scalar(
-                    "2.Workers/5.Training_steps_per_self_played_step_ratio",
-                    info["training_step"] / max(1, info["num_played_steps"]),
-                    counter,
-                )
-                writer.add_scalar("2.Workers/6.Learning_rate", info["lr"], counter)
-                writer.add_scalar(
-                    "3.Loss/1.Total_weighted_loss", info["total_loss"], counter
-                )
-                writer.add_scalar("3.Loss/Value_loss", info["value_loss"], counter)
-                writer.add_scalar("3.Loss/Reward_loss", info["reward_loss"], counter)
-                writer.add_scalar("3.Loss/Policy_loss", info["policy_loss"], counter)
-                print(
-                    f'Last test reward: {info["total_reward"]:.2f}. Training step: {info["training_step"]}/{self.config.training_steps}. Played games: {info["num_played_games"]}. Loss: {info["total_loss"]:.2f}',
-                    end="\r",
-                )
-                counter += 1
-                time.sleep(0.5)
+                current_time = time.time()
+                current_step = info["training_step"]
+                
+                # Only update display at specified intervals or when we're done
+                if current_time - last_update_time >= update_interval or current_step >= self.config.training_steps:
+                    if current_step > last_step:
+                        # Calculate true iterations per second over the entire period
+                        steps_done = current_step - last_step
+                        time_spent = current_time - last_time
+                        it_per_sec = steps_done / time_spent if time_spent > 0 else 0
+                        
+                        pbar.update(steps_done)
+                        last_step = current_step
+                        last_time = current_time
+                        
+                        # Update progress bar description with key metrics
+                        pbar.set_postfix({
+                            "reward": f"{info['total_reward']:.2f}",
+                            "games": info["num_played_games"],
+                            "loss": f"{info['total_loss']:.2f}",
+                            "it/s": f"{it_per_sec:.1f}"
+                        })
+                    
+                    # Update tensorboard metrics
+                    writer.add_scalar(
+                        "1.Total_reward/1.Total_reward",
+                        info["total_reward"],
+                        counter,
+                    )
+                    writer.add_scalar(
+                        "1.Total_reward/2.Mean_value",
+                        info["mean_value"],
+                        counter,
+                    )
+                    writer.add_scalar(
+                        "1.Total_reward/3.Episode_length",
+                        info["episode_length"],
+                        counter,
+                    )
+                    writer.add_scalar(
+                        "1.Total_reward/4.MuZero_reward",
+                        info["muzero_reward"],
+                        counter,
+                    )
+                    writer.add_scalar(
+                        "1.Total_reward/5.Opponent_reward",
+                        info["opponent_reward"],
+                        counter,
+                    )
+                    writer.add_scalar(
+                        "2.Workers/1.Self_played_games",
+                        info["num_played_games"],
+                        counter,
+                    )
+                    writer.add_scalar(
+                        "2.Workers/2.Training_steps", info["training_step"], counter
+                    )
+                    writer.add_scalar(
+                        "2.Workers/3.Self_played_steps", info["num_played_steps"], counter
+                    )
+                    writer.add_scalar(
+                        "2.Workers/4.Reanalysed_games",
+                        info["num_reanalysed_games"],
+                        counter,
+                    )
+                    writer.add_scalar(
+                        "2.Workers/5.Training_steps_per_self_played_step_ratio",
+                        info["training_step"] / max(1, info["num_played_steps"]),
+                        counter,
+                    )
+                    writer.add_scalar("2.Workers/6.Learning_rate", info["lr"], counter)
+                    writer.add_scalar(
+                        "3.Loss/1.Total_weighted_loss", info["total_loss"], counter
+                    )
+                    writer.add_scalar("3.Loss/Value_loss", info["value_loss"], counter)
+                    writer.add_scalar("3.Loss/Reward_loss", info["reward_loss"], counter)
+                    writer.add_scalar("3.Loss/Policy_loss", info["policy_loss"], counter)
+                    
+                    counter += 1
+                    last_update_time = current_time
         except KeyboardInterrupt:
             pass
+        finally:
+            pbar.close()
 
         self.terminate_workers()
 
@@ -399,8 +431,15 @@ class MuZero:
             render=render
         )
         results = []
-        for i in range(num_tests):
-            print(f"Testing {i+1}/{num_tests}")
+        
+        # Create progress bar for multiple tests
+        test_iterator = range(num_tests)
+        if num_tests > 1:
+            test_iterator = tqdm(test_iterator, desc="Testing", unit="games")
+            
+        for i in test_iterator:
+            if num_tests == 1:
+                print(f"Testing game {i+1}/{num_tests}")
             results.append(
                 ray.get(
                     self_play_worker.play_game.remote(
