@@ -25,7 +25,7 @@ class MuZeroConfig:
 
 
         ### Game
-        self.observation_shape = (3, 96, 96)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
+        self.observation_shape = (1, 96, 96)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
         self.action_space = list(range(4))  # Fixed list of all possible actions. You should only edit the length
         self.players = list(range(1))  # List of players. You should only edit the length
         self.stacked_observations = 32  # Number of previous observations and previous actions to add to the current observation
@@ -140,7 +140,7 @@ class Game(AbstractGame):
     """
 
     def __init__(self, seed=None, render_mode=None):
-        self.env = gym.make("Breakout-v4", render_mode=render_mode)
+        self.env = gym.make("Breakout-v4", render_mode=render_mode, obs_type="grayscale")
         if seed is not None:
             self.env.reset(seed=42)
 
@@ -157,7 +157,7 @@ class Game(AbstractGame):
         observation, reward, terminated, truncated, _ = self.env.step(action)
         observation = cv2.resize(observation, (96, 96), interpolation=cv2.INTER_AREA)
         observation = numpy.asarray(observation, dtype="float32") / 255.0
-        observation = numpy.moveaxis(observation, -1, 0)
+        observation = numpy.expand_dims(observation, axis=0)  # Add channel dimension for grayscale
         return observation, reward, terminated or truncated
 
     def legal_actions(self):
@@ -183,7 +183,7 @@ class Game(AbstractGame):
         observation, _ = self.env.reset()
         observation = cv2.resize(observation, (96, 96), interpolation=cv2.INTER_AREA)
         observation = numpy.asarray(observation, dtype="float32") / 255.0
-        observation = numpy.moveaxis(observation, -1, 0)
+        observation = numpy.expand_dims(observation, axis=0)  # Add channel dimension for grayscale
         return observation
 
     def close(self):
