@@ -5,6 +5,6 @@ seaborn
 tensorboard
 torch
 gymnasium
-py_ale
+ale-py
 opencv-python
 tqdm
