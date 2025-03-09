@@ -6,3 +6,4 @@ tensorboard
 torch
 gymnasium
 py_ale
+opencv-python
