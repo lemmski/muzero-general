@@ -1,7 +1,8 @@
-gym[classic_control]
 nevergrad
 numpy
 ray
 seaborn
 tensorboard
 torch
+gymnasium
+py_ale
