@@ -361,6 +361,7 @@ class MuZero:
         finally:
             pbar.close()
 
+        # Save replay buffer regardless of how training ended
         self.terminate_workers()
 
         if self.config.save_model:
@@ -664,6 +665,58 @@ def load_model_menu(muzero, game_name):
         checkpoint_path=checkpoint_path,
         replay_buffer_path=replay_buffer_path,
     )
+
+
+@ray.remote
+class SharedStorage:
+    """
+    Class which runs in a dedicated thread to store the network weights and some information.
+    """
+
+    def __init__(self, checkpoint, config):
+        self.config = config
+        self.current_checkpoint = copy.deepcopy(checkpoint)
+
+    def save_checkpoint(self):
+        if self.config.results_path is not None:
+            # Save checkpoint
+            torch.save(
+                self.current_checkpoint,
+                self.config.results_path / "model.checkpoint",
+            )
+            
+            # Save replay buffer alongside checkpoint if it exists in the checkpoint
+            if "replay_buffer" in self.current_checkpoint:
+                replay_buffer_path = self.config.results_path / "replay_buffer.pkl"
+                print(f"\nSaving replay buffer to {replay_buffer_path}")
+                pickle.dump(
+                    {
+                        "buffer": self.current_checkpoint["replay_buffer"],
+                        "num_played_games": self.current_checkpoint["num_played_games"],
+                        "num_played_steps": self.current_checkpoint["num_played_steps"],
+                        "num_reanalysed_games": self.current_checkpoint["num_reanalysed_games"],
+                    },
+                    open(replay_buffer_path, "wb"),
+                )
+
+    def get_checkpoint(self):
+        return copy.deepcopy(self.current_checkpoint)
+
+    def get_info(self, keys):
+        if isinstance(keys, str):
+            return self.current_checkpoint[keys]
+        elif isinstance(keys, list):
+            return {key: self.current_checkpoint[key] for key in keys}
+        else:
+            raise TypeError
+
+    def set_info(self, keys, values=None):
+        if isinstance(keys, str):
+            self.current_checkpoint[keys] = values
+        elif isinstance(keys, dict):
+            self.current_checkpoint.update(keys)
+        else:
+            raise TypeError
 
 
 if __name__ == "__main__":

@@ -94,6 +94,9 @@ class Trainer:
                     }
                 )
                 if self.config.save_model:
+                    # Get current replay buffer state before saving checkpoint
+                    buffer_state = ray.get(replay_buffer.get_buffer.remote())
+                    shared_storage.set_info.remote({"replay_buffer": buffer_state})
                     shared_storage.save_checkpoint.remote()
             shared_storage.set_info.remote(
                 {
